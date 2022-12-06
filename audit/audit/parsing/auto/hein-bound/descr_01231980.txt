@@ -1,0 +1,8 @@
+speech_id|chamber|date|number_within_file|speaker|first_name|last_name|state|gender|line_start|line_end|file|char_count|word_count
+960187161|S|19800123|528|Mr. DURKIN|Unknown|DURKIN|Unknown|M|40871|40880|01231980.txt|361|51
+960187162|S|19800123|529|The NCAT|Unknown|Unknown|Unknown|Special|40881|40920|01231980.txt|1376|211
+960187163|S|19800123|530|The NCAT|Unknown|Unknown|Unknown|Special|40972|41099|01231980.txt|4513|678
+960187164|S|19800123|531|The NCAT|Unknown|Unknown|Unknown|Special|41100|41152|01231980.txt|2064|316
+960187165|S|19800123|532|Mr. HEINZ|Unknown|HEINZ|Unknown|M|41155|41243|01231980.txt|3358|522
+960187166|S|19800123|533|Mr. JACKSON|Unknown|JACKSON|Unknown|M|41246|41265|01231980.txt|236|39
+960187167|S|19800123|534|Mr. HATCH|Unknown|HATCH|Unknown|M|41522|41565|01231980.txt|1241|200

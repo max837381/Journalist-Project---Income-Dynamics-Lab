@@ -1,0 +1,5 @@
+speech_id|chamber|date|number_within_file|speaker|first_name|last_name|state|gender|line_start|line_end|file|char_count|word_count
+860223196|E|19600510|742|Mr. CURTIS of Missouri|Unknown|CURTIS|Missouri|M|42999|43005|05101960.txt|244|45
+860223197|E|19600510|743|Mr. McGOVERN|Unknown|MCGOVERN|Unknown|M|43109|43118|05101960.txt|363|59
+860223198|E|19600510|744|Mr. OLIVER|Unknown|OLIVER|Unknown|M|43167|43188|05101960.txt|801|130
+860223199|E|19600510|745|Mr. BRADEMAS|Unknown|BRADEMAS|Unknown|M|43377|43402|05101960.txt|837|134

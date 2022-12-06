@@ -1,0 +1,7 @@
+speech_id|chamber|date|number_within_file|speaker|first_name|last_name|state|gender|line_start|line_end|file|char_count|word_count
+610144191|H|19100409|328|Mr. CLARK of Missouri|Unknown|CLARK|Missouri|M|4672|4881|04091910.txt|11300|2001
+610144192|H|19100409|329|Mr. CALDERHEAD|Unknown|CALDERHEAD|Unknown|M|4882|4967|04091910.txt|4938|910
+610144193|H|19100409|330|Mr. BORLAND|Unknown|BORLAND|Unknown|M|4968|5115|04091910.txt|7496|1269
+610144194|H|19100409|331|Mr. MORGAN of Missouri|Unknown|MORGAN|Missouri|M|5116|5191|04091910.txt|3596|626
+610144195|H|19100409|332|Mr. BRANTLEY|Unknown|BRANTLEY|Unknown|M|5192|5394|04091910.txt|11070|1996
+610144196|H|19100409|333|The SPEAKER pro tempore|Unknown|Unknown|Unknown|Special|5396|5401|04091910.txt|251|42

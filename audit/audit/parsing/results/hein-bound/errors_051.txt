@@ -1,0 +1,17 @@
+file|line_start|line_end|line_end_auto|line_end_manual|type
+01161890.txt|4443||4456.0|4444.0|line_end
+05291890.txt|8994||9007.0|8995.0|line_end
+05291890.txt|9635|9645.0|||auto_only
+05291890.txt|9782||9794.0|9782.0|line_end
+08091890.txt|4861||4877.0|4874.0|line_end
+08091890.txt|4943||4958.0|4944.0|line_end
+08091890.txt|4975||4985.0|4978.0|line_end
+08091890.txt|4986|4992.0|||auto_only
+08091890.txt|5290|5290.0|||manual_only
+08091890.txt|5321||5338.0|5324.0|line_end
+08091890.txt|5626|5626.0|||manual_only
+08091890.txt|5694||5709.0|5695.0|line_end
+08161890.txt|9857||10052.0|9904.0|line_end
+08161890.txt|9921|10046.0|||manual_only
+08161890.txt|10602|10658.0|||manual_only
+08161890.txt|10659||10781.0|10776.0|line_end

@@ -1,0 +1,6 @@
+speech_id|chamber|date|number_within_file|speaker|first_name|last_name|state|gender|line_start|line_end|file|char_count|word_count
+960243032|S|19800602|648|Mr. ROBERT C. BYRD|ROBERT C.|BYRD|Unknown|M|22028|22031|06021980.txt|115|19
+960243033|S|19800602|649|The PRESIDING OFFICER|Unknown|Unknown|Unknown|Special|22032|22033|06021980.txt|33|7
+960243034|S|19800602|650|The PRESIDING OFFICER|Unknown|Unknown|Unknown|Special|22039|22043|06021980.txt|122|19
+960243035|S|19800602|651|Mr. MELCHER|Unknown|MELCHER|Unknown|M|22044|22065|06021980.txt|776|118
+960243036|S|19800602|652|The PRESIDING OFFICER|Unknown|Unknown|Unknown|Special|22413|22434|06021980.txt|669|119

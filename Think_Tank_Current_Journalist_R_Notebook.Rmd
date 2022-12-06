@@ -1,0 +1,833 @@
+---
+title: "Final Journalist File"
+output:
+  html_document:
+    keep_md: TRUE
+    df_print: paged
+    theme: spacelab
+    toc: TRUE
+    toc_depth: 2
+    toc_float:
+      collapsed: FALSE
+  editor: visual
+---
+
+# Updates
+
+------------------------------------------------------------------------
+
+-   Now using Think Tank Data
+
+-   Randomly 10,000 observations to see how this data set performs
+
+-   Biggest todo I have noticed is to make the code more concise and make it better readable
+
+-   Also really important will be to make the code universal to make it work with any data set.
+
+## Later Todo:
+
+-   Comment the code better
+-   Change folder used for the speech files to original hein-daily so others can more easily run and collaborate on code
+-   CV.gamlr vs gamlr
+-   More dummies at the start of file
+-   Cleaner output
+-   See which bigrams produced the output
+-   See what articles they are
+
+## R Best Practices Now Implemented in this code:
+
+Restarting R instead of rm(list=ls()) command.
+
+-   Clean R session by restarting, instead of clearing variables in an old session
+-   *Session \> Restart R* or the associated keyboard shortcut Ctrl+Shift+F10 (Windows and Linux) or Command+Shift+F10 (Mac OS).
+
+Instead of setwd()
+
+-   Using a R project with a folder containing all the files is much more reproducible and easier to share
+
+-   New or Open Project (select a folder)
+
+::Renv to keep track of dependencies:
+
+-   Log all packages used so others can easily load and install the required packages
+
+Below is an article that suggests some best practices for writing code in R:
+
+<https://www.tidyverse.org/blog/2017/12/workflow-vs-script/>
+
+# Setup
+
+```{r setup}
+
+# easy loading of packages
+library(pacman)
+p_load(tidyverse, data.table, tm, quanteda, tokenizers, tidytext, tictoc, gamlr, usethis, Matrix, renv, reactable, easycsv, parallel)
+
+# Experiment with Just-In-Time-Compilation
+library(compiler)
+enableJIT(3)
+
+# No scientific notation
+options(scipen = 100)
+
+
+# Initialize setting up package dependencies
+#renv::init()
+
+# takes a snapshot of package dependencies
+renv::snapshot()
+tic("total")
+
+no_cores <- detectCores() - 1
+cl <- makeCluster(no_cores)
+
+# Generate R file from this R notebook
+# knitr::purl("Current_Journalist_R_Notebook.Rmd")
+```
+
+# Dummies
+
+```{r dummies}
+# Make y variable a factor or not (Makes no difference)
+lasso_y_as_factor = 1
+
+# Speaker or speech level
+speaker_level = 1
+
+# Number of files
+num_files = 6
+
+# Word Cutoff for the Congressional Speech data i.e. min. number of words in each speech
+word_cutoff = 400
+
+# Number of observations used for congress data (needs to be bigger than 3000)
+congress_observations = 4000
+
+# Cross_validation?
+cross_validated = 1
+nfolds_cv = 5
+
+# Number of wapo articles analyzed
+wapo_article_size = 100
+```
+
+# Load in Think Tank data
+
+### Loading in the Think Tank files for creating the X matrix for the LASSO regression
+
+```{r load data}
+tic("load speech file")
+
+
+mypath = "/thinktankdata"
+
+# paste(getwd(),mypath, sep = "")
+# 
+# all.files <- list.files(path = paste(getwd(),mypath, sep = ""),pattern = ".csv")
+# 
+# l <- lapply(paste(paste(getwd(),mypath, sep = ""),all.files, sep="/"), fread, sep=",")
+# dt <- rbindlist( l )
+# setkey( dt , ID, date )
+# 
+# test <- fread("/Users/max/Desktop/Journalist Project - Income Dynamics Lab/thinktankdata/CATO.csv")
+
+# txt_files_ls <- list.files(path=paste(getwd(), mypath, sep = ""), pattern="*.csv")
+# 
+# cat("The files used are ", txt_files_ls)
+# 
+# # Read the files in, assuming comma separator
+# txt_files_df <- lapply(txt_files_ls, function(x) {fread(file = txt_files_ls, header = TRUE, sep ="|", quote = "", fill = TRUE)})
+# 
+# 
+# tbl_fread <- 
+#     list.files(path=paste(getwd(), mypath, sep = ""), pattern = "*.csv") %>% 
+#     map_df(~fread(.))
+# 
+
+# USE THIS BELOW!
+# df <-
+#     list.files(path = "./thinktankdata/",
+#                pattern = "*.csv", 
+#                full.names = T) %>% 
+#     map_df(~read_csv(., col_types = cols(.default = "c")))
+# 
+
+
+dir <- paste(getwd(), "thinktankdata", sep="/")
+
+loadcsv_multi(dir)
+
+CATO$slant <- "R"
+`Heritage Foundation`$slant <- "R"
+
+`Center For American Progress Articles new`$slant <- "D"
+urban_inst$slant <- 'D'
+
+df <- rbind(CATO, `Center For American Progress Articles new`, `Heritage Foundation`,  urban_inst)
+df[!complete.cases(df),]
+
+df <- df[complete.cases(df),]
+
+rm(CATO)
+rm(`Center For American Progress Articles new`)
+rm(`Heritage Foundation`)
+rm(urban_inst)
+
+df$slant <- factor(df$slant)
+# Combine them
+
+#df <- do.call("rbind", lapply(txt_files_df, as.data.frame)) 
+
+# Single file approach
+# df <- read.table("/Users/max/Desktop/Journalist Project - Income Dynamics Lab/hein-daily/speeches_114.txt", header=TRUE, sep="|", quote = "", fill = TRUE)
+
+toc()
+```
+
+# Initial Analysis
+
+### Analyze the dataset of speech files
+
+```{r}
+tic("Speech data analysis")
+
+colnames(df)[colnames(df) == 'Content'] <- "speech"
+colnames(df)[colnames(df) == 'art_unique_id'] <- "id"
+df <- df[complete.cases(df), ]
+# find any missing observations
+sum(is.na(df))
+
+# dimensions of the dataframe
+dim(df)
+
+# Find out the number of words of each speech
+tic()
+df$nwords <- str_count(df$speech, "\\w+")
+toc()
+
+
+count_number_words <- function(x) {
+  print(length(x))
+  str_count(x, "\\w+") 
+}
+tic()
+clusterEvalQ(cl, library(stringr))
+#test <- parLapply(cl, df$speech, amp)
+tic()
+df$par <- parSapply(cl, df$speech, count_number_words)
+toc()
+#df$nwords <- sapply(df$speech, function(x) length(unlist(strsplit(as.character(x), "\\W+"))))
+
+
+cat("The number of speeches with NA as the value is ", sum(is.na(df$nwords)))
+cat("The number of speeches with 0 words, thus empty is ", length(df$nwords[df$nwords==0]))
+as.data.frame(table(cut(df$nwords,breaks=seq(0,2000,by=50))))
+summary(df$nwords)
+toc()
+```
+
+Creating a frequency plot
+
+```{r}
+p <- ggplot(df[df$nwords<250,], aes(x = nwords)) +
+  geom_freqpoly(bins=50, color = "navyblue") +
+  labs(
+    title = "Frequency of Think Tank Speech length",
+    x = "Number of Words",
+    y = "Observations"
+  )
+rect <- data.frame(xmin=0, xmax=10, ymin=-Inf, ymax=Inf)
+pp <- p + geom_rect(data=rect, aes(xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax), color=NA, alpha=0.2, inherit.aes = FALSE)
+pp + scale_x_continuous(breaks = seq(0, 100, by = 10))
+```
+
+```{r count number of words}
+# Lets take the 1st quartile as an example (this is something that could be changed)
+#df <- df[df$nwords>11,]
+df <- df[df$nwords>word_cutoff,]
+
+# Keep number of words as a separate vector when needed
+nwords <- df$nwords
+
+
+
+# Subset columns only speech_id and speeches
+#df <- df[c(4,7)]
+
+
+
+#df[!duplicated(df$id), ] 
+df <- df[sample(nrow(df),size=1000),] #congress_observations # 15000
+df$id <- factor(df$id)
+```
+
+# Congress Speech Bigram Conversion Pt. 1
+
+These steps are very close to the Stanford/Taddy study and the results obtained are similar when comparing the output files.
+
+```{r bigram part one}
+tic("bigram conversion - until tokens")
+# rename columns in order to put them into a corpus object
+colnames(df)[colnames(df) == 'id'] <- "doc_id"
+colnames(df)[colnames(df) == 'speech'] <- "text"
+
+df <- df[!duplicated(df$doc_id), ]
+# (ii) removing apostrophes and replacing commas and semicolons with periods
+## removing apostrophes
+df$text <- gsub("'", '', df$text)
+
+# replacing commas and semicolons with periods
+df$text <- gsub(",", '.', df$text)
+df$text <- gsub(":", '.', df$text)
+
+# (iii) replacing repeated white space characters with a single space (if necessary)
+df$text <- str_squish(df$text)
+
+# (iv) removing punctuation—hyphens, periods, and asterisks—that separate the article’s demarcation from the actual article
+df$text <- gsub('"', '', df$text)
+df$text <- gsub('.', '', df$text, fixed = TRUE)
+df$text <- gsub('*', '', df$text)
+df$text <- gsub('-', '', df$text)
+df$text <- gsub('_', '', df$text)
+
+# STEP V removing white spaces at the beginning and end of the speeches
+# removes leading and trailing white spaces from the character vectors a.k.a the speeches
+df <- df %>% 
+  mutate(across(where(is.character), str_trim))
+
+corpus <- corpus(df)
+tokenz <- tokenizers::tokenize_words(corpus, lowercase = TRUE,) %>%
+  tokens(what = "word",remove_punct = TRUE, remove_symbols = TRUE, remove_numbers = FALSE, remove_url = TRUE, remove_separators = TRUE, split_hyphens = TRUE, include_docvars = TRUE, padding = TRUE, verbose = quanteda_options("verbose"), )
+
+toc()
+```
+
+# Congress Speech Bigram Conversion Pt. 2
+
+```{r bigram part two}
+tic("bigram conversion - finished")
+tokenz[3]
+tokenz <- tokens_remove(tokenz, pattern = stopwords("en"))
+tokenz[3]
+tokenz <- tokens_wordstem(tokenz, language = "en")
+tokenz[3]
+toks_ngram <- tokens_ngrams(tokenz, n = 2, concatenator = " ")
+
+toks_dfm <- dfm(toks_ngram)
+
+x <- tidytext::tidy(toks_dfm)
+colnames(x)[colnames(x) == 'document'] <- "speech_id"
+
+# mypath = "/Users/max/Desktop/Journalist Project - Income Dynamics Lab/hein-daily/"
+# txt_files_ls <- tail(list.files(path="/Users/max/Desktop/Journalist Project - Income Dynamics Lab/hein-daily/", pattern="SpeakerMap.txt"), num_files)
+# 
+# cat("The files used are ", txt_files_ls)
+# 
+# # Read the files in, assuming comma separator
+# txt_files_df <- lapply(txt_files_ls, function(x) {read.table(file = paste(mypath,x, sep = ""), header = TRUE, sep ="|")})
+# # Combine them
+# 
+# speaker_map <- do.call("rbind", lapply(txt_files_df, as.data.frame)) 
+# 
+# # speaker_map <- read.csv("/Users/max/Desktop/Journalist Project - Income Dynamics Lab/hein-daily/114_SpeakerMap.txt", header = TRUE, sep = "|")
+# DF <-merge(x=DF,y=speaker_map,by="speech_id",all.x=TRUE)
+# #DF <- DF[c(1:4)]
+
+
+x <- x %>%
+  group_by(speech_id, term) %>%
+  summarise(Frequency = sum(count))
+
+x <- x[complete.cases(x),]
+head(x)
+
+toc()
+
+```
+
+```{r preparation}
+
+df2 <- df[c(7,8)]
+colnames(df2)[colnames(df2) == 'doc_id'] <- "speech_id"
+df2$speech_id <- as.character(df2$speech_id)
+byspeaker <- left_join(x, df2, by="speech_id")
+```
+
+The code chunk above shows that we have successfully created a factor with more levels by using speech_id instead of speaker id
+
+# Creating Sparse Matrix
+
+```{r construct x matrix}
+
+colnames(byspeaker)[colnames(byspeaker) == 'speech_id'] <- "speakerid"
+colnames(byspeaker)[colnames(byspeaker) == 'term'] <- "phrase"
+colnames(byspeaker)[colnames(byspeaker) == 'Frequency'] <- "count"
+
+
+
+# byspeaker$unique_speech_id <- make.unique(as.character(byspeaker$speech_id) ,sep = ".")
+# byspeaker <- byspeaker[order(byspeaker$unique_speech_id),]
+
+# byspeaker$unique_speech_id <- paste("ID", byspeaker$unique_speech_id)
+# byspeaker$unique_speech_id <- factor(byspeaker$unique_speech_id)
+# byspeaker <- byspeaker[order(byspeaker$unique_speech_id),]
+# byspeaker$phrase <- factor(byspeaker$phrase)
+
+
+# X <- sparseMatrix(i = as.numeric(byspeaker$unique_speech_id), j = as.numeric(byspeaker$phrase), x = byspeaker$count, dims = c(nlevels(byspeaker$unique_speech_id), nlevels(byspeaker$phrase)), dimnames = list(id=levels(byspeaker$unique_speech_id), phrase=levels(byspeaker$phrase)))
+
+# X <- sparseMatrix(i = as.numeric(byspeaker$unique_speech_id), j = as.numeric(byspeaker$phrase), x = byspeaker$count, dims = c(nlevels(byspeaker$unique_speech_id), nlevels(byspeaker$phrase)), dimnames = list(id=levels(byspeaker$unique_speech_id), phrase=levels(byspeaker$phrase)))
+
+#byspeaker <- byspeaker[complete.cases(byspeaker), ]
+
+# create sparse matrix
+byspeaker <- byspeaker[order(byspeaker$speakerid),]
+byspeaker$speakerid <- factor(byspeaker$speakerid)
+byspeaker$phrase <- factor(byspeaker$phrase)
+
+X <- sparseMatrix(i = as.numeric(byspeaker$speakerid), j = as.numeric(byspeaker$phrase), x = byspeaker$count, dims = c(nlevels(byspeaker$speakerid), nlevels(byspeaker$phrase)), dimnames = list(id=levels(byspeaker$speakerid), phrase=levels(byspeaker$phrase)))
+
+# speakermap <- read.table("hein-daily/114_SpeakerMap.txt", sep="|", header=T)
+# speakermap <- speaker_map
+# 
+# speakermap$name <- paste(speakermap$firstname, speakermap$lastname) # one name
+# speakermap <- speakermap[!duplicated(speakermap$speakerid),c("speakerid","party", "name")] # drop irrelevant cols
+#byspeaker <- byspeaker[order(byspeaker[,1]),] # sort by id
+# 
+# # drop ids not in X
+byspeaker2 <- byspeaker
+drop_these_ids <- as.integer(setdiff(as.character(byspeaker$speakerid),row.names(X)))
+byspeaker <- byspeaker[!(byspeaker$speakerid %in% drop_these_ids),]
+
+
+
+byspeaker <- byspeaker[!duplicated(byspeaker$speakerid),]
+
+# check that ids in X and speakermap line up
+if (sum(!(row.names(X)==as.character(byspeaker$speakerid))) != 0) { print("Recheck code: ids are not aligned.")}
+
+
+print(object.size(X),units="auto")
+dim(X)
+matrixplot <- image(X)
+
+matrixplot
+
+# Zoomed in version
+image(X[1:400,1:400])
+
+
+# byspeaker$paste <- factor(paste(byspeaker$speech_id, byspeaker$phrase))
+# X_test2 <- sparseMatrix(i = as.numeric(byspeaker$paste), j = as.numeric(byspeaker$phrase), x = byspeaker$count, dims = c(nlevels(byspeaker$paste), nlevels(byspeaker$phrase)), dimnames = list(id=levels(byspeaker$paste), phrase=levels(byspeaker$phrase)))
+# 
+
+
+# check that it worked
+byspeaker[1:5,]
+
+X[1,as.numeric(byspeaker$phrase)[1:5]]
+#rm(byspeaker)
+
+
+# speakermap <- read.table("hein-daily/114_SpeakerMap.txt", sep="|", header=T)
+
+
+# speakermap <- speaker_map
+# 
+# 
+# 
+# speakermap$name <- paste(speakermap$firstname, speakermap$lastname) # one name
+# speakermap <- speakermap[!duplicated(speakermap$speakerid),c("speakerid","party", "name")] # drop irrelevant cols
+# speakermap <- speakermap[order(speakermap[,1]),] # sort by id
+
+# drop ids not in X
+# drop_these_ids <- as.integer(setdiff(as.character(factor(byspeaker$unique_speech_id)),row.names(X)))
+# byspeaker <- byspeaker[!(byspeaker$speakerid %in% drop_these_ids),]
+# 
+# # Merge to have a speaker id for each speech_id
+# 
+# # check that ids in X and speakermap line up
+# if (sum(!(row.names(X)==as.character(factor(byspeaker$unique_speech_id)))) != 0) { print("Recheck code: ids are not aligned.")}
+```
+
+```{r}
+# Bernie Sanders and Angus King both seem to be Democrat leaning thus we will change their values to D
+# byspeaker$party[byspeaker$name == "BERNARD SANDERS"] <-"D"
+# byspeaker$party[byspeaker$name == "ANGUS KING"] <-"D"
+# byspeaker$party[byspeaker$name == "GREGORIO SABLAN"] <-"D"
+# # This can be checked later to see if there are any other congressmen that need to be recoded in terms of their political party
+# byspeaker$party[byspeaker$party == "I"] <-"D"
+# #speakermap$party <- factor(speakermap$party)
+# table(byspeaker$party)
+# 
+# # lasso with raw counts
+# if (lasso_y_as_factor == 0) {
+# cat(" ")
+# cat(" ")
+# cat("Party variable will be converted to factor")
+# cat(" ")
+# cat(" ")
+# byspeaker$party <- factor(byspeaker$party)
+# head(byspeaker$party)
+# } else {
+# byspeaker$party <- ifelse(byspeaker$party == "R", 1,0)
+# cat(" ")
+# cat(" ")
+# cat("Manually coded for R = 1 and D = 0")
+# cat(" ")
+# cat(" ")
+# head(byspeaker$party)
+# }
+# 
+# str(byspeaker)
+```
+
+# Cross-Validated LASSO Regression
+
+# R = 1, D = 0
+
+```{r lasso}
+# y <- speakermap$party
+byspeaker$slant <- ifelse(byspeaker$slant == "R", 1,0)
+y <- byspeaker$slant
+
+if (cross_validated==1) {
+lassoslant <- cv.gamlr(X,y, nfold = 5, verb = TRUE , select="1se") #nfolds_cv as nfold arg
+plot(lassoslant)
+B <- coef(lassoslant, select="1se")[-1, ]
+cat("Using cv.gamlr function with cross-validation")
+} else {
+lassoslant <- gamlr(X, y) # use AICc for speed
+plot(lassoslant)
+B <- coef(lassoslant)[-1, ]
+cat("Using gamlr function with AICc (no cross-validation)")
+}
+#lassoslant <- gamlr(X, y) # use AICc for speed
+#lassoslant <- cv.gamlr(X,y, nfold = nfolds_cv, verb = TRUE , select="1se")
+plot(lassoslant)
+
+B <- coef(lassoslant)[-1, ] #, select="1se"
+head(sort(round(B[B != 0], 4))) # nonzero coefficients
+tail(sort(round(B[B != 0], 4)))
+coefficients_lasso2 <- data.frame(as.list(sort(round(B[B != 0], 4)))) # nonzero coefficients
+#write.csv(coefficients_lasso2, file ="/Users/max/Desktop/Journalist Project - Income Dynamics Lab/lasso_coefficients.csv")
+names(sort(B)[1:10]) # Low repshare (Dems)
+names(sort(-B)[1:10]) # High repshare (Repubs)
+
+# lasso with proportions
+x_prop <- X/rowSums(X)
+lassoslant_prop <- gamlr(x_prop, y)
+B_prop <- coef(lassoslant_prop)[-1, ]
+head(sort(round(B_prop[B_prop != 0], 4)))
+head(names(sort(B_prop)[1:10])) # Low repshare (Dems)
+head(names(sort(-B_prop)[1:10])) # High repshare (Repubs)
+
+# plot AICc curves
+# ll <- log(lassoslant$lambda) # the sequence of lambdas
+# ll <- log(lassoslant$lambda.1se) # the sequence of lambdas
+# # plot(ll, AICc(lassoslant)/length(y), xlab = "log lambda", ylab = "AICc/n", pch = 21, bg = "orange")
+# plot(ll, AICc(lassoslant$lambda.1se)/length(y), xlab = "log lambda", ylab = "AICc/n", pch = 21, bg = "orange")
+# abline(v = ll[which.min(AICc(lassoslant))], col = "orange", lty = 3)
+# abline(v = ll[which.min(AICc(lassoslant_prop))], col = "black", lty = 3)
+# points(ll, AICc(lassoslant_prop)/length(y), pch = 21, bg = "black")
+# legend("topright", bty = "n", fill = c("black", "orange"), legend = c("lassoslant", "lassoslant_prop"))
+
+
+
+# Prediction
+
+coefficients_lasso <- pivot_longer(coefficients_lasso2, cols = everything(), names_to = "phrase",  values_to = "coefficient")
+coefficients_lasso$phrase <- gsub('X', '', coefficients_lasso$phrase)
+coefficients_lasso$phrase <- gsub('X', '', coefficients_lasso$phrase)
+coefficients_lasso$phrase <- gsub('[[:punct:] ]+',' ',coefficients_lasso$phrase)
+coefficients_lasso$phrase <- trimws(coefficients_lasso$phrase, which = c("both"))
+
+# number of coefficients
+length(coefficients_lasso2)
+# reactable(coefficients_lasso)
+#rm(df,toks_dfm,toks_ngram,DF,x,X,x_prop)
+```
+
+# Coefficient Table
+
+Remember that R=1 and D=0
+
+```{r}
+htmltools::tagList(
+  reactable::reactable(coefficients_lasso)
+)
+
+knitr::knit_exit()
+```
+
+# Washington Post Bigrams
+
+Now we will create the bigrams from the wapo articles and apply our LASSO coefficients to make a prediction
+
+First we will load in and subset the WAPO articles to the relevant timerange e.g. cut out the 1931 observation
+
+```{r}
+
+
+wapo <- fread('/Users/max/Desktop/Journalist Project - Income Dynamics Lab/wapo_articles.csv')
+
+
+wapo <- wapo[rev(order(as.Date(wapo$V4, format="%Y/%m/%d"))),]
+
+head(wapo[,4])
+tail(wapo[,4])
+
+wapo <- wapo[wapo$V4 <= "2015-12-31",]
+wapo <- wapo[wapo$V4 > "2004-12-31",]
+
+head(wapo[,4])
+tail(wapo[,4])
+
+wapo <- rename(wapo, speech=V5)
+
+wapo$index <- 1:nrow(wapo)
+head(wapo)
+wapo_original <- wapo
+wapo <- wapo[,c(5,6)]
+
+wapo <- wapo[sample(nrow(wapo),size=wapo_article_size),]
+```
+
+```{r}
+tic("wapo bigram conversion - until tokens")
+# rename columns in order to put them into a corpus object
+colnames(wapo)[colnames(wapo) == 'index'] <- "doc_id"
+colnames(wapo)[colnames(wapo) == 'speech'] <- "text"
+
+# (ii) removing apostrophes and replacing commas and semicolons with periods
+## removing apostrophes
+wapo$text <- gsub("'", '', wapo$text)
+
+# replacing commas and semicolons with periods
+wapo$text <- gsub(",", '.', wapo$text)
+wapo$text <- gsub(":", '.', wapo$text)
+
+# (iii) replacing repeated white space characters with a single space (if necessary)
+wapo$text <- str_squish(wapo$text)
+
+# (iv) removing punctuation—hyphens, periods, and asterisks—that separate the article’s demarcation from the actual article
+wapo$text <- gsub('"', '', wapo$text)
+wapo$text <- gsub('.', '', wapo$text, fixed = TRUE)
+wapo$text <- gsub('*', '', wapo$text)
+wapo$text <- gsub('-', '', wapo$text)
+
+# STEP V removing white spaces at the beginning and end of the speeches
+# removes leading and trailing white spaces from the character vectors a.k.a the speeches
+wapo <- wapo %>% 
+  mutate(across(where(is.character), str_trim))
+
+corpus <- corpus(wapo)
+tokenz <- tokenizers::tokenize_words(corpus, lowercase = TRUE,) %>%
+  tokens(what = "word",remove_punct = TRUE, remove_symbols = TRUE, remove_numbers = FALSE, remove_url = TRUE, remove_separators = TRUE, split_hyphens = TRUE, include_docvars = TRUE, padding = TRUE, verbose = quanteda_options("verbose"), )
+
+toc()
+```
+
+```{r}
+tic("wapo bigram conversion - finished")
+tokenz[3]
+tokenz <- tokens_remove(tokenz, pattern = stopwords("en"))
+tokenz[3]
+tokenz <- tokens_wordstem(tokenz, language = "en")
+tokenz[3]
+toks_ngram <- tokens_ngrams(tokenz, n = 2, concatenator = " ")
+
+toks_dfm <- dfm(toks_ngram)
+
+DF <- tidytext::tidy(toks_dfm)
+colnames(DF)[colnames(DF) == 'document'] <- "index"
+
+
+wapo_bigrams <- DF %>% 
+  group_by(index, term) %>%
+  summarise(count = sum(count))
+
+colnames(wapo_bigrams)[colnames(wapo_bigrams) == 'term'] <- "phrase"
+
+wapo_bigrams <- wapo_bigrams[complete.cases(wapo_bigrams),]
+
+toc()
+
+```
+
+```{r}
+# wapo_bigrams <- read.csv("wapo_max_bigrams_1000.csv", header = TRUE, sep = ",")
+
+# Aggregates counts by index (representing a news article) and by phrase as subgroups, essentially merging duplicates and adding the count of the merged phrase
+# wapo_bigrams <- wapo_bigrams %>% 
+#   group_by(index, phrase) %>%
+#   summarise(count = sum(count))
+
+#matches <- plyr::match_df(coefficients_lasso, wapo_bigrams, on = "phrase")
+
+# match 
+matches <- wapo_bigrams[which(wapo_bigrams$phrase %in% coefficients_lasso$phrase),]
+matches <- matches[order(matches$index),]
+
+# test <- matches[matches$index==unique(matches$index),]
+test <- matches
+  #test[nrow(test) + 1,] = list(test$index[1],"thank famili",33)
+  
+  #test
+#index_no <- test[,1]
+
+
+#test <- test[c(2,3)]
+# Create a new data frame with the dimension and rownames (which we will turn into column names) as the coefficient matrix/vector
+match <- coefficients_lasso
+match$coefficient <- 0
+colnames(match)[colnames(match) == 'coefficient'] <- "count"
+
+# make the matrix vector into wide format 1 * n vector
+#match <- match %>% pivot_wider(names_from = phrase, values_from = count)
+# if there is a match then fill row with count otherwise leave as 0
+
+match <- merge(x=match,y=test,by="phrase",all.x=TRUE)
+match$count.y <- ifelse(is.na(match$count.y)==TRUE, 0, match$count.y)
+
+colnames(match)[colnames(match) == 'count.y'] <- "count"
+
+# Save the index to attach later
+index_matches <- match$index
+
+# take out wrong count column (wrong since it is a byproduct of the merge)
+match <- match[-c(2)]
+look2 <- match %>% pivot_wider(names_from = phrase, values_from = count)
+
+# Drop if index number = NA
+look3 <- look2[!is.na(look2$index),]
+
+# now we have our count dataframe
+look4 <- mutate_all(look3, ~replace(., is.na(.), 0))
+
+# save the index
+multiplication_index <- look4$index
+
+#remove index from data frame
+look5 <- look4[-c(1)]
+
+result <- data.matrix(look5) %*% as.numeric(coefficients_lasso2)
+
+# convert logit coefficients intepreted as log odds to probabilities
+logit_func <- function(x) {
+   exp(x)/(1+exp(x))
+}
+result <- logit_func(result)
+
+result <- cbind(multiplication_index, result)
+head(order(result))
+tail(order(result))
+
+# Build function to include what article and what bigrams produced the result
+
+toc()
+
+```
+
+# Results
+
+```{r eval=FALSE}
+# wapo_bigrams <- read.csv("wapo_max_bigrams_1000.csv", header = TRUE, sep = ",")
+
+# Aggregates counts by index (representing a news article) and by phrase as subgroups, essentially merging duplicates and adding the count of the merged phrase
+# wapo_bigrams <- wapo_bigrams %>% 
+#   group_by(index, phrase) %>%
+#   summarise(count = sum(count))
+
+#matches <- plyr::match_df(coefficients_lasso, wapo_bigrams, on = "phrase")
+
+# match 
+matches <- wapo_bigrams[which(wapo_bigrams$phrase %in% coefficients_lasso$phrase),]
+matches <- matches[order(matches$index),]
+
+test <- matches[matches$index==unique(matches$index),]
+  #test[nrow(test) + 1,] = list(test$index[1],"thank famili",33)
+  
+  #test
+#index_no <- test[,1]
+
+
+#test <- test[c(2,3)]
+# Create a new data frame with the dimension and rownames (which we will turn into column names) as the coefficient matrix/vector
+match <- coefficients_lasso
+match$coefficient <- 0
+colnames(match)[colnames(match) == 'coefficient'] <- "count"
+
+# make the matrix vector into wide format 1 * n vector
+#match <- match %>% pivot_wider(names_from = phrase, values_from = count)
+# if there is a match then fill row with count otherwise leave as 0
+
+match <-merge(x=match,y=test,by="phrase",all.x=TRUE)
+match$count.y <- ifelse(is.na(match$count.y)==TRUE, 0, match$count.y)
+
+colnames(match)[colnames(match) == 'count.y'] <- "count"
+
+# Save the index to attach later
+index_matches <- match$index
+
+# take out wrong count column (wrong since it is a byproduct of the merge)
+match <- match[-c(2)]
+look2 <- match %>% pivot_wider(names_from = phrase, values_from = count)
+
+# Drop if index number = NA
+look3 <- look2[!is.na(look2$index),]
+
+# now we have our count dataframe
+look4 <- mutate_all(look3, ~replace(., is.na(.), 0))
+
+# save the index
+multiplication_index <- look4$index
+
+#remove index from data frame
+look5 <- look4[-c(1)]
+
+result <- data.matrix(look5) %*% as.numeric(coefficients_lasso2)
+
+# convert logit coefficients intepreted as log odds to probabilities
+logit_func <- function(x) {
+   exp(x)/(1+exp(x))
+}
+result <- logit_func(result)
+
+result <- cbind(multiplication_index, result)
+result
+
+reactable(result)
+
+toc()
+```
+
+# Results Table
+
+```{r}
+htmltools::tagList(
+  reactable::reactable(result)
+)
+```
+
+# Test: Attach Bigrams
+
+```{r}
+matches2 <- matches
+
+aaa <- aggregate(paste(matches2$phrase,matches2$count, sep = "; ")~matches2$index, matches2, FUN= paste, collapse=' ')
+
+colnames(aaa)[colnames(aaa)=='matches2$index'] <- 'multiplication_index'
+
+results2 <- data.frame(result)
+
+bbb <- left_join(results2, aaa, by="multiplication_index")
+
+colnames(bbb)[3] <- 'phrases'
+```
+
+```{r}
+htmltools::tagList(
+  reactable::reactable(bbb)
+)
+```

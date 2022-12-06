@@ -1,0 +1,65 @@
+Congress: 111
+Source:   hein-bound
+Files:    ['01202010.txt', '06252010.txt', '09272010.txt', '10012010.txt']
+
+Comparison of automatic and manual parsing
+==========================================
+Number of speeches (automatic):                   179268
+Number of speeches (manual):                      69
+Number of speeches (manual, non-special speaker): 34
+
+--Manual speeches: all | Merge on: starting line number--
+Number of merges:                       69
+    % of manual speeches:               100.0%
+Number of speaker matches:              52
+    % of merged speeches:               75.4%
+Number of chamber matches:              69
+    % of merged speeches:               100.0%
+
+--Manual speeches: nonspecial speakers only | Merge on: starting line number--
+Number of merges:                       34
+    % of non-special manual speeches:   100.0%
+Number of speaker matches:              34
+    % of merged speeches:               100.0%
+
+--Manual speeches: all | Merge on: starting and ending line numbers--
+Number of merges:                       56
+    % of manual speeches:               81.2%
+Number of speaker matches:              44
+    % of merged speeches:               78.6%
+
+--Manual speeches: nonspecial speakers only | Merge on: starting and ending line numbers--
+Number of merges:                       31
+    % of non-special manual speeches:   91.2%
+Number of speaker matches:              31
+    % of merged speeches:               100.0%
+
+--Distribution of line_end_auto minus line_end_manual--
+    All speeches merged on first line
+        < -10:    1.4%
+        -[6-10]:  0.0%
+        -[3-5]:   0.0%
+        -2:       0.0%
+        -1:       0.0%
+        0:        81.2%
+        1:        5.8%
+        2:        2.9%
+        3-5:      1.4%
+        6-10:     2.9%
+        > 10:     4.3%
+    Nonspecial speeches merged on first line
+        < -10:    2.9%
+        -[6-10]:  0.0%
+        -[3-5]:   0.0%
+        -2:       0.0%
+        -1:       0.0%
+        0:        91.2%
+        1:        0.0%
+        2:        2.9%
+        3-5:      0.0%
+        6-10:     0.0%
+        > 10:     2.9%
+
+
+False positives: 1
+False positive rate: 1.4%

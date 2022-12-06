@@ -1,0 +1,1 @@
+|speech_id|manual_speakerid|special|context|auto_speakerid|lastname|firstname|chamber|state|gender|party|district|nonvoting

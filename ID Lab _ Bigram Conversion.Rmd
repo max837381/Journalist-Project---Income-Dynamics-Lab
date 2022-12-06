@@ -1,0 +1,106 @@
+---
+title: "ID Lab - Journal Article to bigram conversion"
+author: "Max Landesz"
+date: "08/01/2022"
+output:
+  html_document:
+    df_print: paged
+    theme: spacelab
+---
+
+## Preliminary steps and setup
+
+```{r}
+# Income Dynamics Lab - Converting text to bigram
+rm(list = ls())
+gc()
+set.seed(0)
+library(pacman)
+# SnowballC is the librarys for Porter stemming algorithms
+p_load(tidyverse, SnowballC, tm, reticulate)
+
+# Pre-steps:
+# Import file:
+fileName <- '/Users/max/Documents/UCSC/Summer 2022/Journalist Project - Income Dynamics Lab/test_article.txt'
+
+# Load as variable (article = variable)
+example <- readChar(fileName, file.info(fileName)$size)
+
+# Remove certain words from the text (optional)
+example <- str_remove_all(example, "\n")
+```
+
+## This is what we get
+
+```{r}
+example
+```
+
+## Step 1
+
+### Separate the main text from everything else (metadata etc.)
+
+```{r}
+# Step 1: This could also be done by implementing a start and stop word for example but with many articles we should rely on a pattern in the data such as with the example article
+
+example <- gsub("EDT","", example)
+
+# Add spaces in between words that do not have them
+example <- gsub("([a-z])([A-Z])", "\\1 \\2", example)
+```
+
+Here the word 'EDT' is used as a marker for when the article started
+
+## Step 2
+
+### Make all the text lowercase
+
+```{r}
+# Step 2 make everything lowercase
+
+example <- tolower(example)
+
+example
+```
+
+## Step 3
+
+### String splitting where we split the text into separate words
+
+```{r}
+# First we split the text into words and rmeove all non-alphanumeric characters such as whitespaces, colons, commas and full stops
+#test <- strsplit(example, split = " ")
+
+test <- strsplit(gsub("[^[:alnum:] ]", "", example), " +")[[1]]
+
+df <- as.data.frame(test)
+
+```
+
+Now we have a dataframe with only alphanumeric characters and each word as its own row in a column
+
+## Step 4
+
+### Here we will be removing stopwords ("a, and" as an example to only leave more meaningful words)
+
+```{r}
+# Change to Corpus
+corpus <- Corpus(VectorSource(df))
+corpus[[1]]
+
+# Remove the stop words
+corpus2 <- tm_map(corpus, removeWords, stopwords('english'))
+corpus2[[1]]
+```
+
+## Step 5
+
+### Use the remaining words to reduce them to stems using the Porter 2 stemming algorithm
+
+```{r}
+test_again <- data.frame(text = sapply(corpus2, as.character), stringsAsFactors = FALSE)
+
+corpus3 <- wordStem(test_again, language = "porter")
+corpus3
+#df2 <- as.data.frame(corpus3)
+```

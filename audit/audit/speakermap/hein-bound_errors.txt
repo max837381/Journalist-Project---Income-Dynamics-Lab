@@ -1,0 +1,4 @@
+|speech_id|manual_speakerid|special|context|auto_speakerid|lastname|firstname|chamber|state|gender|party|district|nonvoting
+21|530071286|53059130.0|0|0.0|||||||||
+52|690184405|69078421.0|0|1.0|||||||||
+137|1110029685|111116090.0|0|1.0|||||||||

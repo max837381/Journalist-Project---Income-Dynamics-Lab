@@ -1,0 +1,10 @@
+file|line_start|line_end|line_end_auto|line_end_manual|type
+06031940.txt|12457||12471.0|12759.0|line_end
+06031940.txt|12776||12822.0|12875.0|line_end
+06031940.txt|12886||12890.0|12909.0|line_end
+08301940.txt|8750||8792.0|8759.0|line_end
+08301940.txt|8794|8795.0|||manual_only
+08301940.txt|9133||9147.0|9152.0|line_end
+08301940.txt|9162||9259.0|9177.0|line_end
+08301940.txt|9203|9257.0|||manual_only
+08301940.txt|9289||9314.0|9306.0|line_end

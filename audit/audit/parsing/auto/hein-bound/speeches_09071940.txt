@@ -1,0 +1,18 @@
+speech_id|speech
+760274341|announped the following pairs until further notice: General pairs: Mr. Dempsey with Mr. Darrow. Mr. Garrett with Mr. Risk. Mr. Fernandez with Mr. Sutphin. Mr. Wallgren with Mrs. ODay. Mr. Murdock of Utah with Mr. Chapman. Mr. Collins with Mr. Schaefer of Illinois. Mr. Dies with Mr. Ellis. The. result of the vote was announced as above recorded.
+760274342|The question is on the substitute committee amendment as amended for the original bill.
+760274343|The question is on the engrossment and third reading of the bill. The bill was ordered to be engrossed and read a third time. and was read the third time.
+760274344|Mr. Speaker-
+760274345|For what purpose does the gentleman from Missouri rise?
+760274346|Mr. Speaker. I offer a motion to recommit which is at the Clerks desk.
+760274347|Is the gentleman a member of the committee?
+760274348|I am. sir.
+760274349|Is the gentleman opposed to the bill?
+760274350|Most emphatically.
+760274351|The gentleman qualifies. and the Clerk will report the motion to recommit.
+760274352|Mr. Speaker. on that motion I move the previous question. The previous question was ordered.
+760274353|Mr. Speaker-
+760274354|For what purpose does the gentleman from Missouri rise?
+760274355|Mr. Speaker. as a member of the committee on the majority side. I have a motion to recommit. also.
+760274356|Under the rules. there is only permitted one motion to recommit. and the minority side under the universal practice has the right to be recognized on such motion.
+760274357|Mr. Speaker. I demand the yeas and nays on the motion to recommit.

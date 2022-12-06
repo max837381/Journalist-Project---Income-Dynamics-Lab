@@ -1,0 +1,15 @@
+.Rproj.user
+.Rhistory
+.Rdata
+.httr-oauth
+.DS_Store
+hein-daily
+hein-daily-2005to2015
+vocabulary
+wapo_articles.csv
+speech_converted_bigrams.csv
+first_article2.txt
+first_article.txt
+think_tank_combined.csv
+thinktankdata
+lec06--text.pdf

@@ -1,0 +1,7 @@
+file|line_start|line_end|line_end_auto|line_end_manual|type
+06111990.txt|17257||17315.0|17308.0|line_end
+06111990.txt|17482||17541.0|17534.0|line_end
+06111990.txt|17593||17611.0|17630.0|line_end
+09061990.txt|3120||3208.0|3201.0|line_end
+09131990.txt|74595||74653.0|74644.0|line_end
+09131990.txt|74706||74711.0|74707.0|line_end

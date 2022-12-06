@@ -1,0 +1,3 @@
+file|line_start|line_end|line_end_auto|line_end_manual|type
+06192000.txt|39628||39671.0|39810.0|line_end
+06192000.txt|40075||40126.0|40425.0|line_end

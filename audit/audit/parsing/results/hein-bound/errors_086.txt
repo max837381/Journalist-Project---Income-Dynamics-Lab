@@ -1,0 +1,4 @@
+file|line_start|line_end|line_end_auto|line_end_manual|type
+07051960.txt|17829||17895.0|17866.0|line_end
+07111960.txt|3097||3213.0|3108.0|line_end
+07111960.txt|3206|3210.0|||manual_only

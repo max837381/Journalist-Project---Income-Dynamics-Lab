@@ -1,0 +1,9 @@
+file|line_start|line_end|line_end_auto|line_end_manual|type
+01202010.txt|23161||23173.0|23278.0|line_end
+01202010.txt|23175|23278.0|||auto_only
+06252010.txt|978||993.0|982.0|line_end
+06252010.txt|994||1007.0|995.0|line_end
+06252010.txt|1593||1600.0|1595.0|line_end
+06252010.txt|1623||1777.0|1625.0|line_end
+09272010.txt|26397||26404.0|26398.0|line_end
+09272010.txt|26527||26535.0|26528.0|line_end

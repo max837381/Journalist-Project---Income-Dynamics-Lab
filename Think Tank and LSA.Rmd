@@ -1,0 +1,207 @@
+---
+title: "Think Tank and LSA"
+output: html_notebook
+---
+
+## No rm(list=ls()), instead refresh R session by (Shift-Command-0)
+
+Recommendation from Hadley Wickham
+
+```{r}
+library(pacman)
+p_load(tidyverse, data.table, tm, quanteda, tokenizers, tidytext, tictoc, gamlr, usethis, Matrix, renv, reactable, easycsv, quanteda.textmodels, lsa, caret)
+
+# No scientific notation
+options(scipen = 100)
+
+# setting up the working environments
+#setwd("/Users/max/Desktop/Journalist Project - Income Dynamics Lab")
+
+# Initialize setting up package dependencies
+#renv::init()
+
+
+# takes a snapshot of package dependencies
+renv::snapshot()
+```
+
+```{r}
+source("bigram_conversion_func.R")
+
+# Get Think Tank data
+dir <- paste(getwd(), "thinktankdata", sep="/")
+
+loadcsv_multi(dir)
+
+```
+
+```{r}
+# Same number of columns
+dim(CATO)
+dim(`Center For American Progress Articles new`)
+dim(`Heritage Foundation`)
+dim(urban_inst)
+```
+
+Center for American Progress and Urban Institute are the lefty think tanks. Heritage and Cato are the right-leaning ones.
+
+```{r}
+# Add a y variable column in order to set up for gamlr later on
+
+CATO$slant <- "R"
+`Heritage Foundation`$slant <- "R"
+
+`Center For American Progress Articles new`$slant <- "D"
+urban_inst$slant <- 'D'
+```
+
+```{r}
+# Combine df to see missing data
+df <- rbind(CATO, `Center For American Progress Articles new`, `Heritage Foundation`,  urban_inst)
+df[!complete.cases(df),]
+```
+
+```{r}
+df <- df[complete.cases(df),]
+
+rm(CATO)
+rm(`Center For American Progress Articles new`)
+rm(`Heritage Foundation`)
+rm(urban_inst)
+
+df$slant <- factor(df$slant)
+```
+
+```{r}
+# Check to see everything worked
+df_backup <- df
+#df <- df_backup
+table(df$slant)
+
+df <- df[sample(nrow(df), 500),]
+
+table(df$slant)
+
+```
+
+```{r}
+# Bigrams (using the smallest df for testing)
+
+#colnames(urban_inst)
+# df, id column and text column, output as df, sum counts for output
+#bigrams <- bigram_conversion(urban_inst, "art_unique_id", "Content", FALSE, FALSE)
+```
+
+```{r}
+token_conversion <- function(df,id_column,text_column) {
+  
+  # rename columns in order to put them into a corpus object
+  colnames(df)[match(id_column,colnames(df))] <- "doc_id"
+  colnames(df)[match(text_column,colnames(df))] <- "text"
+  
+  # (ii) removing apostrophes and replacing commas and semicolons with periods
+  ## removing apostrophes
+  df$text <- gsub("'", '', df$text)
+  
+  # replacing commas and semicolons with periods
+  df$text <- gsub(",", '.', df$text)
+  df$text <- gsub(":", '.', df$text)
+  
+  # (iii) replacing repeated white space characters with a single space (if necessary)
+  df$text <- str_squish(df$text)
+  
+  # (iv) removing punctuation—hyphens, periods, and asterisks—that separate the article’s demarcation from the actual article
+  df$text <- gsub('"', '', df$text)
+  df$text <- gsub('.', '', df$text, fixed = TRUE)
+  df$text <- gsub('*', '', df$text)
+  df$text <- gsub('-', '', df$text)
+  
+  # STEP V removing white spaces at the beginning and end of the speeches
+  # removes leading and trailing white spaces from the character vectors a.k.a the speeches
+  df <- df %>% 
+    mutate(across(where(is.character), str_trim))
+  
+  corpus <- corpus(df)
+  tokenz <- tokenizers::tokenize_words(corpus, lowercase = TRUE,) %>%
+    tokens(what = "word",remove_punct = TRUE, remove_symbols = TRUE, remove_numbers = FALSE, remove_url = TRUE, remove_separators = TRUE, split_hyphens = TRUE, include_docvars = TRUE, padding = TRUE, verbose = quanteda_options("verbose"), )
+  tic("bigram conversion - finished")
+  tokenz[3]
+  tokenz <- tokens_remove(tokenz, pattern = stopwords("en"))
+  tokenz[3]
+  tokenz <- tokens_wordstem(tokenz, language = "en")
+  tokenz[3]
+  toks_ngram <- tokens_ngrams(tokenz, n = 2, concatenator = " ")
+  
+  #toks_dfm <- dfm(toks_ngram)
+  #TDM <- TermDocumentMatrix(toks_ngram)
+  
+  return(toks_ngram)
+}
+```
+
+# Option 1: Tokens to TDM
+
+```{r}
+# Function to convert to DFM
+#test_df <- urban_inst[sample(nrow(urban_inst), 200),]
+#tokens <- token_conversion(test_df, "art_unique_id", "Content")
+#TDM2 <- TermDocumentMatrix(tokens)
+```
+
+# Option 2: Corpus to TDM
+
+```{r}
+lacorp <- VCorpus(VectorSource(df))
+
+# Clean data
+
+szCorpus <- tm_map(lacorp, content_transformer(tolower))
+
+szCorpus <- tm_map(szCorpus, removePunctuation)
+szCorpus <- tm_map(szCorpus, removeWords, stopwords("english"))
+
+szCorpus <- tm_map(szCorpus, stripWhitespace)
+TDM <- TermDocumentMatrix(szCorpus)
+```
+
+```{r}
+#lsa <- lsa(TDM, dims = 2)
+#matrix <- as.textmatrix(lsa)
+
+tdm.lsa = lsa(TDM)
+tdm.lsa_tk=as.data.frame(tdm.lsa$tk) #Terms x New LSA Space
+tdm.lsa_dk=as.data.frame(tdm.lsa$dk) #Documents x New LSA Space
+tdm.lsa_sk=as.data.frame(tdm.lsa$sk) #Singular Values
+```
+
+```{r}
+
+y <- df$slant
+
+test_index <- createDataPartition(y, p = .2, list = F)
+Test<-df[test_index,]
+Train<-df[-test_index,]
+
+
+model<-glm(y~tdm.lsa$dk, data=Train, family="binomial")
+    prediction<-predict(model, Test, type="response")
+```
+
+```{r}
+str(matrix)
+```
+
+```{r}
+investingMantra_TD_Matrix.lsa <- lw_bintf(investingMantra_TD_Matrix) * gw_idf(investingMantra_TD_Matrix)
+
+lsaSpace<- lsa(investingMantra_TD_Matrix.lsa)
+
+
+distnce_matrix_lsa<- dist(t(as.textmatrix(lsaSpace)))  
+distnce_matrix_lsa
+
+
+fit<- cmdscale(distnce_matrix_lsa , eig = TRUE, k = 2)
+points<- data.frame(x = fit$points[, 1], y = fit$points[, 2])
+ggplot(points, aes(x = x, y = y)) + geom_point(data = points, aes(x = x, y = y,size=5, color = IM_DataFrame$view)) + geom_text(data = points, aes(x = x, y = y - 0.2, label = row.names(IM_DataFrame)))
+```

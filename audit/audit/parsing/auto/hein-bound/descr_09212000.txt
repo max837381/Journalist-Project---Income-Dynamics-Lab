@@ -1,0 +1,3 @@
+speech_id|chamber|date|number_within_file|speaker|first_name|last_name|state|gender|line_start|line_end|file|char_count|word_count
+1060186144|S|20000921|605|Mr. LEVIN|Unknown|LEVIN|Unknown|M|35814|35881|09212000.txt|2369|372
+1060186145|S|20000921|606|Mr. ALLARD|Unknown|ALLARD|Unknown|M|35889|36191|09212000.txt|9961|1618
