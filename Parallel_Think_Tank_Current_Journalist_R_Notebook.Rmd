@@ -87,6 +87,9 @@ tic("total")
 # Dummies
 
 ```{r dummies}
+# Name of file to load
+
+filename <- "think_tank_combined.csv"
 # Make y variable a factor or not (Makes no difference)
 lasso_y_as_factor = 1
 
@@ -117,69 +120,7 @@ wapo_article_size = 100
 ```{r load data}
 tic("load speech file")
 
-
-mypath = "/thinktankdata"
-
-# paste(getwd(),mypath, sep = "")
-# 
-# all.files <- list.files(path = paste(getwd(),mypath, sep = ""),pattern = ".csv")
-# 
-# l <- lapply(paste(paste(getwd(),mypath, sep = ""),all.files, sep="/"), fread, sep=",")
-# dt <- rbindlist( l )
-# setkey( dt , ID, date )
-# 
-# test <- fread("/Users/max/Desktop/Journalist Project - Income Dynamics Lab/thinktankdata/CATO.csv")
-
-# txt_files_ls <- list.files(path=paste(getwd(), mypath, sep = ""), pattern="*.csv")
-# 
-# cat("The files used are ", txt_files_ls)
-# 
-# # Read the files in, assuming comma separator
-# txt_files_df <- lapply(txt_files_ls, function(x) {fread(file = txt_files_ls, header = TRUE, sep ="|", quote = "", fill = TRUE)})
-# 
-# 
-# tbl_fread <- 
-#     list.files(path=paste(getwd(), mypath, sep = ""), pattern = "*.csv") %>% 
-#     map_df(~fread(.))
-# 
-
-# USE THIS BELOW!
-# df <-
-#     list.files(path = "./thinktankdata/",
-#                pattern = "*.csv", 
-#                full.names = T) %>% 
-#     map_df(~read_csv(., col_types = cols(.default = "c")))
-# 
-
-
-dir <- paste(getwd(), "thinktankdata", sep="/")
-
-loadcsv_multi(dir)
-
-CATO$slant <- "R"
-`Heritage Foundation`$slant <- "R"
-
-`Center For American Progress Articles new`$slant <- "D"
-urban_inst$slant <- 'D'
-
-df <- rbind(CATO, `Center For American Progress Articles new`, `Heritage Foundation`,  urban_inst)
-df[!complete.cases(df),]
-
-df <- df[complete.cases(df),]
-
-rm(CATO)
-rm(`Center For American Progress Articles new`)
-rm(`Heritage Foundation`)
-rm(urban_inst)
-
-df$slant <- factor(df$slant)
-# Combine them
-
-#df <- do.call("rbind", lapply(txt_files_df, as.data.frame)) 
-
-# Single file approach
-# df <- read.table("/Users/max/Desktop/Journalist Project - Income Dynamics Lab/hein-daily/speeches_114.txt", header=TRUE, sep="|", quote = "", fill = TRUE)
-
+df <- fread(filename)
 toc()
 ```
 
@@ -200,9 +141,9 @@ sum(is.na(df))
 dim(df)
 
 # Find out the number of words of each speech
-tic()
-df$nwords <- str_count(df$speech, "\\w+")
-toc()
+# tic()
+# df$nwords <- str_count(df$speech, "\\w+")
+# toc()
 
 
 count_number_words <- function(x) {
@@ -216,10 +157,11 @@ cl <- makeCluster(no_cores)
 clusterEvalQ(cl, library(stringr))
 #test <- parLapply(cl, df$speech, amp)
 tic()
-df$par <- parSapply(cl, df$speech, count_number_words)
+df$nwords <- parSapply(cl, df$speech, count_number_words)
 toc()
 
 stopCluster(cl)
+rm(cl)
 
 #df$nwords <- sapply(df$speech, function(x) length(unlist(strsplit(as.character(x), "\\W+"))))
 
@@ -262,7 +204,7 @@ nwords <- df$nwords
 
 
 #df[!duplicated(df$id), ] 
-df <- df[sample(nrow(df),size=15000),] #congress_observations # 15000
+df <- df[sample(nrow(df),size=1500),] #congress_observations # 15000
 df$id <- factor(df$id)
 ```
 
@@ -276,52 +218,89 @@ tic("bigram conversion - until tokens")
 colnames(df)[colnames(df) == 'id'] <- "doc_id"
 colnames(df)[colnames(df) == 'speech'] <- "text"
 
-df <- df[!duplicated(df$doc_id), ]
-# (ii) removing apostrophes and replacing commas and semicolons with periods
-## removing apostrophes
-df$text <- gsub("'", '', df$text)
 
-# replacing commas and semicolons with periods
-df$text <- gsub(",", '.', df$text)
-df$text <- gsub(":", '.', df$text)
+bigrams <- function(df) {
+  
+  df <- df[!duplicated(df$doc_id), ]
+  # (ii) removing apostrophes and replacing commas and semicolons with periods
+  ## removing apostrophes
+  df$text <- gsub("'", '', df$text)
+  
+  # replacing commas and semicolons with periods
+  df$text <- gsub(",", '.', df$text)
+  df$text <- gsub(":", '.', df$text)
+  
+  # (iii) replacing repeated white space characters with a single space (if necessary)
+  #df$text <- str_squish(df$text)
+  
+  # (iv) removing punctuation—hyphens, periods, and asterisks—that separate the article’s demarcation from the actual article
+  df$text <- gsub('"', '', df$text)
+  df$text <- gsub('.', '', df$text, fixed = TRUE)
+  df$text <- gsub('*', '', df$text)
+  df$text <- gsub('-', '', df$text)
+  df$text <- gsub('_', '', df$text)
+  
+  # STEP V removing white spaces at the beginning and end of the speeches
+  # removes leading and trailing white spaces from the character vectors a.k.a the speeches
+  
+  df <- df %>% 
+    mutate(across(where(is.character), str_trim))
+  
+  df <- corpus(df)
+  df <- tokenizers::tokenize_words(df, lowercase = TRUE,) %>%
+    tokens(what = "word",remove_punct = TRUE, remove_symbols = TRUE, remove_numbers = FALSE, remove_url = TRUE, remove_separators = TRUE, split_hyphens = TRUE, include_docvars = TRUE, padding = TRUE, verbose = quanteda_options("verbose"), )
+  
+  
+  # tokenz[3]
+  df <- tokens_remove(df, pattern = stopwords("en"))
+  # tokenz[3]
+  df <- tokens_wordstem(df, language = "en")
+  # tokenz[3]
+  df <- tokens_ngrams(df, n = 2, concatenator = " ")
+  
+  df <- dfm(df)
+}
 
-# (iii) replacing repeated white space characters with a single space (if necessary)
-df$text <- str_squish(df$text)
 
-# (iv) removing punctuation—hyphens, periods, and asterisks—that separate the article’s demarcation from the actual article
-df$text <- gsub('"', '', df$text)
-df$text <- gsub('.', '', df$text, fixed = TRUE)
-df$text <- gsub('*', '', df$text)
-df$text <- gsub('-', '', df$text)
-df$text <- gsub('_', '', df$text)
-
-# STEP V removing white spaces at the beginning and end of the speeches
-# removes leading and trailing white spaces from the character vectors a.k.a the speeches
-df <- df %>% 
-  mutate(across(where(is.character), str_trim))
-
-corpus <- corpus(df)
-tokenz <- tokenizers::tokenize_words(corpus, lowercase = TRUE,) %>%
-  tokens(what = "word",remove_punct = TRUE, remove_symbols = TRUE, remove_numbers = FALSE, remove_url = TRUE, remove_separators = TRUE, split_hyphens = TRUE, include_docvars = TRUE, padding = TRUE, verbose = quanteda_options("verbose"), )
-
-toc()
 ```
 
-# Congress Speech Bigram Conversion Pt. 2
+```{r}
 
-```{r bigram part two}
-tic("bigram conversion - finished")
-tokenz[3]
-tokenz <- tokens_remove(tokenz, pattern = stopwords("en"))
-tokenz[3]
-tokenz <- tokens_wordstem(tokenz, language = "en")
-tokenz[3]
-toks_ngram <- tokens_ngrams(tokenz, n = 2, concatenator = " ")
+test <- sapply(list(df$text,df$doc_id), bigrams)
+tic()
+df1 <- bigrams(df2)
 
-toks_dfm <- dfm(toks_ngram)
+toc()
 
-x <- tidytext::tidy(toks_dfm)
+df_original <- df
+
+
+no_cores <- detectCores() - 1
+cl <- makeCluster(no_cores)
+
+clusterEvalQ(cl, c(library(quanteda), library(dplyr), library(stringr), library(tokenizers), library(tictoc)))
+
+tic()
+df <- parSapply(cl, replicate(no_cores, df2, simplify=FALSE), bigrams)
+toc()
+
+
+
+pissed <- function(df2) {
+  
+  print(df2)
+}
+#df <- sapply(list(df2), bigrams)
+
+#df <- parSapply(cl, df2, bigrams(df2,text,doc_id))
+
+stopCluster(cl)
+rm(cl)
+
+x <- tidytext::tidy(df)
 colnames(x)[colnames(x) == 'document'] <- "speech_id"
+
+x <- x %>% filter(str_length(term) >= 4)
 
 # mypath = "/Users/max/Desktop/Journalist Project - Income Dynamics Lab/hein-daily/"
 # txt_files_ls <- tail(list.files(path="/Users/max/Desktop/Journalist Project - Income Dynamics Lab/hein-daily/", pattern="SpeakerMap.txt"), num_files)
@@ -337,17 +316,27 @@ colnames(x)[colnames(x) == 'document'] <- "speech_id"
 # # speaker_map <- read.csv("/Users/max/Desktop/Journalist Project - Income Dynamics Lab/hein-daily/114_SpeakerMap.txt", header = TRUE, sep = "|")
 # DF <-merge(x=DF,y=speaker_map,by="speech_id",all.x=TRUE)
 # #DF <- DF[c(1:4)]
-
-
-x <- x %>%
-  group_by(speech_id, term) %>%
-  summarise(Frequency = sum(count))
-
-data_sum <- data[ , .(group_sum = sum(value)), by = group]     # Aggregate data
+tic("data.table group by")
+DT <- data.table(x)
+data_sum <- DT[ , .(Frequency = sum(count)), by = list(speech_id,term)]     # Aggregate data
 data_sum
 
-x <- x[complete.cases(x),]
-head(x)
+toc()
+# 
+# tic("tidyverse group by")
+# x <- x %>%
+#   group_by(speech_id, term) %>%
+#   summarise(Frequency = sum(count))
+# toc()
+
+
+x <- data.frame(x[order(x$speech_id, x$term),])
+
+data_sum <- data.frame(data_sum[order(data_sum$speech_id, data_sum$term),])
+
+
+# x <- x[complete.cases(x),]
+# head(x)
 
 toc()
 

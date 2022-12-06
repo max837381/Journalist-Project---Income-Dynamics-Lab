@@ -501,10 +501,10 @@
     },
     "data.table": {
       "Package": "data.table",
-      "Version": "1.14.6",
+      "Version": "1.14.7",
       "Source": "Repository",
       "Repository": "CRAN",
-      "Hash": "aecef50008ea7b57c76f1cb5c127fb02",
+      "Hash": "cb60d18c7f089774810fecec26b32292",
       "Requirements": []
     },
     "dbplyr": {
